@@ -1,0 +1,7 @@
+all:
+  hosts:
+    ec2_instance_1:
+      ansible_host: EC2_INSTANCE_HOST_PLACEHOLDER
+      ansible_user: EC2_INSTANCE_USER_PLACEHOLDER
+      ansible_ssh_private_key_file: SSH_PRIVATE_KEY_PATH_PLACEHOLDER
+      ansible_python_interpreter: /usr/bin/python3

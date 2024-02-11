@@ -1,0 +1,67 @@
+trigger:
+- main
+
+pool:
+  name: 'Default'
+
+stages:
+- stage: BuildAndPush
+  displayName: 'Build and Push Docker Image'
+  jobs:
+  - job: Build
+    displayName: 'Build Docker Image'
+    steps:
+    - script: |
+        docker login -u $DockerHubUsername -p $DockerHubPassword &&
+        docker build -t $DockerHubUsername/counter-service:$BUILD_ID . &&
+        docker push $DockerHubUsername/counter-service:$BUILD_ID
+      displayName: 'Build and Push Docker Image'
+      env:
+        DockerHubUsername: $(DockerHubUsername)
+        DockerHubPassword: $(DockerHubPassword)
+        BUILD_ID: $(Build.BuildId)
+
+- stage: Deploy
+  displayName: 'Deploy to EC2'
+  dependsOn: BuildAndPush
+  condition: succeeded('BuildAndPush')
+  jobs:
+  - job: Deploy
+    displayName: 'Deploy Using Ansible'
+    steps:
+    - task: DownloadSecureFile@1
+      name: sshKey
+      inputs:
+        secureFile: 'ec2.pem'
+
+    - script: |
+        cp ansible/inventory.yml.template ansible/inventory.yml
+        sed -i 's/EC2_INSTANCE_HOST_PLACEHOLDER/$(EC2InstanceHost)/g' ansible/inventory.yml
+        sed -i 's/EC2_INSTANCE_USER_PLACEHOLDER/$(EC2InstanceUser)/g' ansible/inventory.yml
+        sed -i 's|SSH_PRIVATE_KEY_PATH_PLACEHOLDER|'"$(sshKey.secureFilePath)"'|g' ansible/inventory.yml
+      displayName: 'Prepare Ansible Inventory'
+
+    - script: |
+        sudo apt-get update && sudo apt-get install -y ansible &&
+        chmod 400 $(sshKey.secureFilePath) &&
+        ansible-playbook -i ansible/inventory.yml ansible/deploy.yml --extra-vars "ansible_ssh_private_key_file=$(sshKey.secureFilePath) docker_hub_username=$(DockerHubUsername) docker_hub_password=$(DockerHubPassword) build_id=$BUILD_ID"
+      displayName: 'Run Ansible Playbook'
+      env:
+        ANSIBLE_HOST_KEY_CHECKING: "False"
+        DockerHubUsername: $(DockerHubUsername)
+        DockerHubPassword: $(DockerHubPassword)
+        BUILD_ID: $(Build.BuildId)
+
+- stage: HealthCheck
+  displayName: 'Health Check'
+  dependsOn: Deploy
+  condition: succeeded('Deploy')
+  jobs:
+  - job: CheckServiceHealth
+    displayName: 'Check Service Health'
+    steps:
+    - script: |
+        curl -f -s $(ServiceHealthEndpoint) || exit 1
+      displayName: 'Verify Service Health'
+      env:
+        ServiceHealthEndpoint: $(ServiceHealthEndpoint)
