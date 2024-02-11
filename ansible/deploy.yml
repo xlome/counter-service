@@ -1,46 +1,46 @@
 ---
 - name: Deploy counter-service
-  hosts: ec2_instance_1
-  become: true
+  hosts: ec2_instance_1  # Target hosts where the deployment will happen
+  become: true  # Elevate privilege level
 
   tasks:
     - name: Install Python 3
-      yum:
-        name: python3
-        state: present
+      yum:  # Use the yum module to manage packages
+        name: python3  # Specify Python 3 as the package to install
+        state: present  # Ensure Python 3 is installed
 
     - name: Install requests library
-      pip:
-        name: requests
-        executable: pip3
+      pip:  # Use the pip module to manage Python packages
+        name: requests  # Specify the requests library as the package to install (required by Ansible)
+        executable: pip3  # Specify to use pip3 for Python 3
 
     - name: Ensure Docker is installed
-      ansible.builtin.package:
-        name: docker
-        state: present
+      ansible.builtin.package:  # Use the generic package module, which is adaptable to the package manager of the target system
+        name: docker  # Specify Docker as the package to ensure is installed
+        state: present  # Ensure Docker is installed
 
     - name: Login to Docker Hub
-      community.general.docker_login:
+      community.general.docker_login:  # Use the docker_login module to authenticate with Docker Hub
         username: "{{ docker_hub_username }}"
         password: "{{ docker_hub_password }}"
 
     - name: Pull the latest Docker image
-      community.general.docker_image:
-        name: "{{ docker_hub_username }}/counter-service:{{ build_id }}"
-        source: pull
+      community.general.docker_image:  # Use the docker_image module to manage Docker images
+        name: "{{ docker_hub_username }}/counter-service:{{ build_id }}"  # Specify the image to pull, including the build ID to ensure the latest version
+        source: pull  # Specify that the source action is to pull the image
 
     - name: Stop the current container if it exists
-      community.general.docker_container:
-        name: counter-service
-        state: absent
+      community.general.docker_container:  # Use the docker_container module to manage Docker containers
+        name: counter-service  # The name of the container to stop
+        state: absent  # Ensure the container is stopped and removed
 
     - name: Run the new container
-      community.general.docker_container:
-        name: counter-service
-        image: "{{ docker_hub_username }}/counter-service:{{ build_id }}"
+      community.general.docker_container:  # Use the docker_container module to manage containers
+        name: counter-service  # The name of the container to create and start
+        image: "{{ docker_hub_username }}/counter-service:{{ build_id }}"  # The Docker image to use for the container
         published_ports:
-          - "80:8000"
-        restart_policy: always
-        state: started
+          - "80:8000"  # Maps port 80 on the host to port 8000 in the container
+        restart_policy: always  # Ensures the container will always restart on failure
+        state: started  # Ensures the container is running
         volumes:
-          - "/var/app_data/counter_service:/var/app_data/counter_service"
+          - "/var/app_data/counter_service:/var/app_data/counter_service"  # Mount a volume for persistent data storage
