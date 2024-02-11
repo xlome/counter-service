@@ -1,0 +1,7 @@
+all:  # Define the group containing all hosts
+  hosts:  # Specify individual hosts within the group
+    ec2_instance_1:  # The name of the host as referenced in playbooks
+      ansible_host: EC2_INSTANCE_HOST_PLACEHOLDER
+      ansible_user: EC2_INSTANCE_USER_PLACEHOLDER
+      ansible_ssh_private_key_file: SSH_PRIVATE_KEY_PATH_PLACEHOLDER
+      ansible_python_interpreter: /usr/bin/python3
